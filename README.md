@@ -1,15 +1,15 @@
-# plywood-postgres-requester
+# plywood-trino-requester
 
-This is the [Postgres](http://www.postgresql.org/) requester making abstraction layer for [plywood](https://github.com/implydata/plywood).
+This is the [Trino](http://www.trino.io/) requester making abstraction layer for [plywood](https://github.com/implydata/plywood).
 
-Given a Postgres query and an optional context it return a Q promise that resolves to the data table.
+Given a Trino query and an optional context it return a Q promise that resolves to the data table.
 
 ## Installation
 
 To install run:
 
 ```
-npm install plywood-postgres-requester
+npm install plywood-trino-requester
 ```
 
 ## Usage
@@ -17,16 +17,16 @@ npm install plywood-postgres-requester
 In the raw you could use this library like so:
 
 ```
-postgresRequesterGenerator = require('plywood-postgres-requester').postgresRequester
+trinoRequesterGenerator = require('plywood-trino-requester').trinoRequester
 
-postgresRequester = postgresRequesterGenerator({
-  host: 'my.postgres.host',
+trinoRequester = trinoRequesterGenerator({
+  host: 'my.trino.host',
   database: 'all_my_data',
   user: 'HeMan',
   password: 'By_the_Power_of_Greyskull'
 })
 
-postgresRequester({
+trinoRequester({
   query: 'SELECT "cut" AS "Cut", sum("price") AS "TotalPrice" FROM "diamonds" GROUP BY "cut";'
 })
   .then(function(res) {
@@ -35,9 +35,10 @@ postgresRequester({
   .done()
 ```
 
-Although usually you would just pass `postgresRequester` into the Postgres driver that is part of Plywood.
+Although usually you would just pass `trinoRequester` into the Trino driver that is part of Plywood.
 
 ## Tests
 
-Currently the tests run against a real Postgres database that should be configured (database, user, password) the same as
-what is indicated in `test/info.coffee`.
+ToDo:
+- [ ] Trino Dockerfile with test DB
+- [ ] 
