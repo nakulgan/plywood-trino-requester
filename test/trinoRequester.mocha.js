@@ -17,7 +17,7 @@
 const { expect } = require("chai");
 const toArray = require("stream-to-array");
 
-const { trinoRequesterFactory } = require('../build/trinoRequester'); // Update with correct path
+const { trinoRequesterFactory } = require('../build/trinoRequester');
 
 const info = require('./info');
 
@@ -26,7 +26,8 @@ const trinoRequester = trinoRequesterFactory({
   catalog: info.trinoCatalog,
   schema: info.trinoSchema,
   user: info.trinoUser,
-  // Assuming no password for Trino in this example
+  password: info.trinUser
+  // TODO: Auth/JWT support
 });
 
 describe("Trino requester", function() {
@@ -62,7 +63,6 @@ describe("Trino requester", function() {
 
       return toArray(stream)
         .then((res) => {
-          // Adjust the expected result based on Trino output
           expect(res.map(r => {
             return r.column_name + ' ~ ' + r.data_type;
           })).to.deep.equal([
@@ -106,7 +106,6 @@ describe("Trino requester", function() {
 
       return toArray(stream)
         .then((res) => {
-          // Adjust the expected result based on Trino output
           expect(res).to.deep.equal([
             {
               "Channel": "de",
@@ -154,7 +153,6 @@ describe("Trino requester", function() {
 
       return toArray(stream)
         .then((res) => {
-          // Adjust the expected result based on Trino output
           expect(res).to.deep.equal([
             {
               "MaxTime": new Date('2015-09-12T23:59:00.000Z')
@@ -170,7 +168,6 @@ describe("Trino requester", function() {
 
       return toArray(stream)
         .then((res) => {
-          // Adjust the expected result based on Trino output
           expect(res).to.deep.equal([
             {
               "__VALUE__": 2
