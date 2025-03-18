@@ -1,8 +1,8 @@
 # plywood-trino-requester
 
-This is the [Trino](http://www.trino.io/) requester making abstraction layer for [plywood](https://github.com/implydata/plywood).
+This is the [Trino](https://trino.io/) requester making abstraction layer for [plywood](https://github.com/implydata/plywood) and [Turnilo](https://github.com/allegro/turnilo) (an OSS UI for Druid).
 
-Given a Trino query and an optional context it return a Q promise that resolves to the data table.
+Given a Trino query and an optional context it returns a readable stream of results.
 
 ## Installation
 
@@ -16,29 +16,66 @@ npm install plywood-trino-requester
 
 In the raw you could use this library like so:
 
-```
-trinoRequesterGenerator = require('plywood-trino-requester').trinoRequester
+```javascript
+const { trinoRequesterFactory } = require('plywood-trino-requester');
+const toArray = require('stream-to-array'); // To get all results as an array
 
-trinoRequester = trinoRequesterGenerator({
-  host: 'my.trino.host',
-  database: 'all_my_data',
-  user: 'HeMan',
-  password: 'By_the_Power_of_Greyskull'
-})
+const trinoRequester = trinoRequesterFactory({
+  host: 'my.trino.host:8080',
+  catalog: 'tpch',
+  schema: 'sf1',
+  auth: {
+    user: 'trino',
+    password: 'trino'
+  }
+});
 
-trinoRequester({
-  query: 'SELECT "cut" AS "Cut", sum("price") AS "TotalPrice" FROM "diamonds" GROUP BY "cut";'
-})
-  .then(function(res) {
-    console.log("The first row is:", res[0])
+// Use the requester
+const stream = trinoRequester({
+  query: 'SELECT "nation", sum("price") AS "TotalPrice" FROM "orders" GROUP BY "nation";'
+});
+
+// Stream to array to get all results
+toArray(stream)
+  .then(results => {
+    console.log("Results:", results);
   })
-  .done()
+  .catch(err => {
+    console.error("Query error:", err);
+  });
 ```
 
-Although usually you would just pass `trinoRequester` into the Trino driver that is part of Plywood.
+Although usually you would just pass `trinoRequester` into the Trino driver that is part of Plywood or configure it for Turnilo.
+
+## Configuration for Turnilo
+
+To configure this connector with Turnilo, install this package and then update your Turnilo cluster configuration:
+
+```yaml
+dataCubes:
+  - name: trino_example
+    clusterName: trino_cluster
+    source: trino
+
+clusters:
+  - name: trino_cluster
+    type: trino
+    host: trino-server:8080
+    catalog: tpch
+    schema: sf1 
+    user: trino
+    password: trino-password  # Consider using environment variables for credentials
+```
 
 ## Tests
 
-ToDo:
-- [ ] Trino Dockerfile with test DB
-- [ ] 
+To run the tests:
+
+```
+npm test
+```
+
+Future ToDos:
+- [ ] Add a Docker container with Trino and test data for full integration testing
+- [ ] Add more comprehensive tests for the Trino connection
+- [ ] Improve error handling and retry logic
