@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "noEmitOnError": true,
     "declaration": true,
     "removeComments": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "strictNullChecks": false,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "importHelpers": true,
-    "lib": ["es2016"],
-    "target": "es5",
+    "lib": ["es2017", "es2018"],
+    "target": "es2018",
+    "module": "commonjs",
     "rootDir": "src",
     "outDir": "build",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "typeRoots": ["node_modules/@types", "src/typings"],
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*.ts"

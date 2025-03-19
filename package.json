@@ -1,22 +1,22 @@
 {
-  "name": "plywood-postgres-requester",
+  "name": "plywood-trino-requester",
   "version": "1.4.0",
-  "description": "Postgres requester for Plywood (within node)",
+  "description": "Trino requester for Plywood (within node)",
   "keywords": [
-    "postgres",
+    "trino",
     "requester"
   ],
   "author": {
-    "name": "Vadim Ogievetsky",
-    "url": "http://vadim.ogievetsky.com"
+    "name": "Nakul Ganesh Selvaraj",
+    "url": "nakulganesh.com"
   },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "http://github.com/implydata/plywood-postgres-requester.git"
+    "url": "http://github.com/nakulgan/plywood-trino-requester.git"
   },
-  "main": "build/postgresRequester.js",
-  "typings": "build/postgresRequester.d.ts",
+  "main": "build/trinoRequester.js",
+  "typings": "build/trinoRequester.d.ts",
   "files": [
     "build/"
   ],
@@ -28,9 +28,8 @@
     "test": "mocha"
   },
   "dependencies": {
-    "pg": "~7.4.3",
-    "postgres-date-utc": "~1.0.3",
-    "plywood-base-api": "~0.2.8"
+    "plywood-base-api": "~0.2.8",
+    "trino-client": "^0.2.3"
   },
   "devDependencies": {
     "@types/mocha": "5.2.5",
