@@ -43,7 +43,13 @@ describe("Trino requester", function() {
     });
 
     it("correct error for bad table", function() {
-      this.skip(); // Skip until Trino server is set up
+      // Only run this test if TRINO_INTEGRATION environment variable is set
+      const isIntegration = process.env.TRINO_INTEGRATION === 'true';
+      if (!isIntegration) {
+        this.skip(); // Skip unless using the Docker integration environment
+        return;
+      }
+      
       let stream = trinoRequester({
         query: "SELECT * FROM not_a_real_datasource"
       });
@@ -60,58 +66,73 @@ describe("Trino requester", function() {
 
   describe("basic working", function() {
     it("creates a query stream - test implementation", function() {
-      this.skip(); // Skip this test for now as we don't have a proper trino-client setup
+      // Only run this test if TRINO_INTEGRATION environment variable is set
+      const isIntegration = process.env.TRINO_INTEGRATION === 'true';
+      if (!isIntegration) {
+        this.skip(); // Skip unless using the Docker integration environment
+        return;
+      }
       
-      // The test would look like this when you have a proper trino-client setup
-      /*
       let stream = trinoRequester({
         query: "SELECT 1 as value"
       });
       
       expect(stream).to.be.instanceof(Readable);
-      */
+      
+      return toArray(stream)
+        .then((results) => {
+          expect(results).to.have.length(1);
+          expect(results[0]).to.have.property('value', 1);
+        });
     });
 
-    it.skip("runs a metadata query - skipped", () => {
+    it("runs a metadata query on TPC-H orders table", function() {
+      // Only run this test if TRINO_INTEGRATION environment variable is set
+      const isIntegration = process.env.TRINO_INTEGRATION === 'true';
+      if (!isIntegration) {
+        this.skip(); // Skip unless using the Docker integration environment
+        return;
+      }
+      
       let stream = trinoRequester({
-        query: "SHOW COLUMNS FROM wikipedia"
+        query: "SHOW COLUMNS FROM orders"
       });
 
       return toArray(stream)
         .then((res) => {
-          expect(res.map(r => {
-            return r.column_name + ' ~ ' + r.data_type;
-          })).to.deep.equal([
-            "__time ~ timestamp",
-            "sometimeLater ~ timestamp",
-            "channel ~ varchar",
-            "cityName ~ varchar",
-            "comment ~ varchar",
-            "commentLength ~ integer",
-            "commentLengthStr ~ varchar",
-            "countryIsoCode ~ varchar",
-            "countryName ~ varchar",
-            "deltaBucket100 ~ integer",
-            "isAnonymous ~ boolean",
-            "isMinor ~ boolean",
-            "isNew ~ boolean",
-            "isRobot ~ boolean",
-            "isUnpatrolled ~ boolean",
-            "metroCode ~ integer",
-            "namespace ~ varchar",
-            "page ~ varchar",
-            "regionIsoCode ~ varchar",
-            "regionName ~ varchar",
-            "user ~ varchar",
-            "userChars ~ varchar",
-            "count ~ bigint",
-            "added ~ bigint",
-            "deleted ~ bigint",
-            "delta ~ bigint",
-            "min_delta ~ integer",
-            "max_delta ~ integer",
-            "deltaByTen ~ double"
+          // Check that we have the expected columns in the orders table
+          const columnNames = res.map(r => r.column_name);
+          expect(columnNames).to.include.members([
+            "orderkey", 
+            "custkey", 
+            "orderstatus", 
+            "totalprice", 
+            "orderdate", 
+            "orderpriority", 
+            "clerk", 
+            "shippriority"
           ]);
+        });
+    });
+    
+    it("runs a query against TPC-H dataset", function() {
+      // Only run this test if TRINO_INTEGRATION environment variable is set
+      const isIntegration = process.env.TRINO_INTEGRATION === 'true';
+      if (!isIntegration) {
+        this.skip(); // Skip unless using the Docker integration environment
+        return;
+      }
+      
+      let stream = trinoRequester({
+        query: "SELECT count(*) as order_count FROM orders"
+      });
+
+      return toArray(stream)
+        .then((res) => {
+          expect(res).to.have.length(1);
+          expect(res[0]).to.have.property('order_count');
+          expect(res[0].order_count).to.be.a('number');
+          expect(res[0].order_count).to.be.greaterThan(0);
         });
     });
 

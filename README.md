@@ -69,13 +69,41 @@ clusters:
 
 ## Tests
 
-To run the tests:
+To run the unit tests:
 
 ```
 npm test
 ```
 
-Future ToDos:
-- [ ] Add a Docker container with Trino and test data for full integration testing
+### Integration Testing with Docker
+
+This project includes a Docker Compose setup for integration testing with real Trino and Turnilo instances.
+
+To start the integration testing environment:
+
+```bash
+make up
+```
+
+This will start:
+- Trino server with TPC-H dataset on port 8080
+- Turnilo visualization UI on port 9090
+
+To run tests with the Docker environment active:
+
+```bash
+make integration-test
+```
+
+This command will:
+1. Start Docker containers 
+2. Wait for services to initialize
+3. Run the test suite
+4. Shutdown containers when done
+
+For more details on the Docker setup, see [docker/README.md](docker/README.md).
+
+## Future ToDos:
+- [x] Add a Docker container with Trino and test data for full integration testing
 - [ ] Add more comprehensive tests for the Trino connection
 - [ ] Improve error handling and retry logic

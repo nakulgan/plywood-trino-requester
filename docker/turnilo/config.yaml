@@ -1,0 +1,72 @@
+port: 9090
+verbose: true
+
+# Connection to Trino
+clusters:
+  - name: trino_cluster
+    type: trino
+    host: trino:8080
+    catalog: tpch
+    schema: tiny
+    user: trino
+    password: datazoo
+    version: "424.0.0"
+    timeout: 60000
+
+# Example dataCubes configuration using TPC-H data
+dataCubes:
+  - name: orders
+    clusterName: trino_cluster
+    source: orders
+    title: Orders
+    description: TPC-H Orders Data
+    refreshRule:
+      rule: fixed
+      time: PT1M
+    dimensions:
+      - name: orderdate
+        kind: time
+        formula: $orderdate
+        title: Order Date
+      - name: orderstatus
+        formula: $orderstatus
+        title: Order Status
+      - name: orderpriority
+        formula: $orderpriority
+        title: Order Priority
+      - name: clerk
+        formula: $clerk
+        title: Clerk
+    measures:
+      - name: count
+        formula: $main.count()
+        title: Count
+      - name: totalPrice
+        formula: $main.sum($totalprice)
+        title: Total Price
+
+  - name: customer
+    clusterName: trino_cluster
+    source: customer
+    title: Customers
+    description: TPC-H Customer Data
+    refreshRule:
+      rule: fixed
+      time: PT1M
+    dimensions:
+      - name: name
+        formula: $name
+        title: Customer Name
+      - name: mktsegment
+        formula: $mktsegment
+        title: Market Segment
+      - name: nation
+        formula: $nationkey
+        title: Nation
+    measures:
+      - name: count
+        formula: $main.count()
+        title: Count
+      - name: acctbal
+        formula: $main.sum($acctbal)
+        title: Account Balance

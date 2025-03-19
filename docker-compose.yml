@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  trino:
+    image: trinodb/trino:424
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/trino/catalog:/etc/trino/catalog
+      - ./docker/trino/data:/data
+    environment:
+      - TRINO_PASSWORD=datazoo
+    networks:
+      - trino-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  turnilo:
+    build:
+      context: ./docker/turnilo
+      dockerfile: Dockerfile
+    ports:
+      - "9091:9090"
+    depends_on:
+      trino:
+        condition: service_healthy
+    networks:
+      - trino-net
+
+networks:
+  trino-net:
+    driver: bridge
