@@ -2,15 +2,15 @@
 
 # Start Docker containers
 up:
-	docker-compose up -d
+	docker compose up -d
 
 # Start Docker containers and follow logs
 up-logs:
-	docker-compose up
+	docker compose up
 
 # Stop Docker containers
 down:
-	docker-compose down
+	docker compose down
 
 # Run unit tests
 test:

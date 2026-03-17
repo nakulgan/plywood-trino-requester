@@ -1,4 +1,4 @@
-FROM node:18
+FROM node:18-bullseye
 
 WORKDIR /app
 
@@ -11,23 +11,16 @@ RUN apt-get update && \
 # Set Node to use the legacy OpenSSL provider
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
-# Clone Turnilo repository
-RUN git clone https://github.com/allegro/turnilo.git . && \
-    npm install && \
-    npm run build
+# Copy the modified Turnilo source (with Trino support)
+COPY turnilo/ /app/
+
+# Install dependencies and build
+RUN npm install && npm run build
 
 # Copy config
 COPY config.yaml /app/config.yaml
 
-# Wait script
-RUN echo '#!/bin/bash\n\
-echo "Testing connection to Trino..."\n\
-curl -v http://trino:8080/v1/info\n\
-echo "Starting Turnilo..."\n\
-./bin/turnilo run-config /app/config.yaml\n\
-' > /app/start.sh && chmod +x /app/start.sh
-
 EXPOSE 9090
 
-# Use the correct command to run Turnilo with config
-CMD ["/app/start.sh"]
+ENTRYPOINT ["./bin/turnilo"]
+CMD ["run-config", "/app/config.yaml", "--verbose"]

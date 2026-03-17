@@ -4,3 +4,8 @@
 .sass-cache/
 node_modules/
 build/
+docker/trino/data/
+docker/nginx/
+docker/turnilo/index.js
+docker/turnilo/trino-requester.js
+CLAUDE.md

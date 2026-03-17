@@ -28,12 +28,11 @@
     "test": "mocha"
   },
   "dependencies": {
-    "plywood-base-api": "~0.2.8",
-    "trino-client": "^0.2.3"
+    "plywood-base-api": "~0.2.8"
   },
   "devDependencies": {
     "@types/mocha": "5.2.5",
-    "@types/node": "10.10.1",
+    "@types/node": "^10.10.1",
     "chai": "4.1.2",
     "mocha": "5.2.0",
     "stream-to-array": "2.3.0",

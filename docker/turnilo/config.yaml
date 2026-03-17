@@ -1,28 +1,45 @@
 port: 9090
 verbose: true
 
-# Connection to Trino
 clusters:
-  - name: trino_cluster
+  - name: trino
     type: trino
-    host: trino:8080
+    url: http://trino:8080
     catalog: tpch
-    schema: tiny
-    user: trino
-    password: datazoo
-    version: "424.0.0"
-    timeout: 60000
+    schema: sf1
+    sourceListScan: disable
+    timeout: 120000
 
-# Example dataCubes configuration using TPC-H data
 dataCubes:
   - name: orders
-    clusterName: trino_cluster
+    clusterName: trino
     source: orders
-    title: Orders
-    description: TPC-H Orders Data
+    title: TPC-H Orders
+    description: Orders from the TPC-H benchmark dataset (1992-1998)
+    timeAttribute: orderdate
+    introspection: no-autofill
     refreshRule:
       rule: fixed
       time: PT1M
+    attributeOverrides:
+      - name: orderkey
+        type: NUMBER
+      - name: custkey
+        type: NUMBER
+      - name: orderstatus
+        type: STRING
+      - name: totalprice
+        type: NUMBER
+      - name: orderdate
+        type: TIME
+      - name: orderpriority
+        type: STRING
+      - name: clerk
+        type: STRING
+      - name: shippriority
+        type: NUMBER
+      - name: comment
+        type: STRING
     dimensions:
       - name: orderdate
         kind: time
@@ -40,33 +57,10 @@ dataCubes:
     measures:
       - name: count
         formula: $main.count()
-        title: Count
-      - name: totalPrice
+        title: Order Count
+      - name: total_price
         formula: $main.sum($totalprice)
         title: Total Price
-
-  - name: customer
-    clusterName: trino_cluster
-    source: customer
-    title: Customers
-    description: TPC-H Customer Data
-    refreshRule:
-      rule: fixed
-      time: PT1M
-    dimensions:
-      - name: name
-        formula: $name
-        title: Customer Name
-      - name: mktsegment
-        formula: $mktsegment
-        title: Market Segment
-      - name: nation
-        formula: $nationkey
-        title: Nation
-    measures:
-      - name: count
-        formula: $main.count()
-        title: Count
-      - name: acctbal
-        formula: $main.sum($acctbal)
-        title: Account Balance
+      - name: avg_price
+        formula: $main.average($totalprice)
+        title: Average Price

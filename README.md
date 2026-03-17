@@ -1,12 +1,13 @@
 # plywood-trino-requester
 
-This is the [Trino](https://trino.io/) requester making abstraction layer for [plywood](https://github.com/implydata/plywood) and [Turnilo](https://github.com/allegro/turnilo) (an OSS UI for Druid).
+A [Trino](https://trino.io/) requester for [Plywood](https://github.com/implydata/plywood), enabling [Turnilo](https://github.com/allegro/turnilo) to query Trino as a first-class data source alongside Druid.
 
-Given a Trino query and an optional context it returns a readable stream of results.
+This project has two parts:
+
+1. **Requester package** (`src/trinoRequester.ts`) — standalone npm module that sends SQL to Trino's `/v1/statement` HTTP API and handles paginated responses
+2. **Turnilo fork** (`docker/turnilo/turnilo/`) — modified Turnilo with Trino cluster support, a Trino SQL dialect, client-side query caching, and manual query controls
 
 ## Installation
-
-To install run:
 
 ```
 npm install plywood-trino-requester
@@ -14,11 +15,11 @@ npm install plywood-trino-requester
 
 ## Usage
 
-In the raw you could use this library like so:
+### Standalone requester
 
 ```javascript
 const { trinoRequesterFactory } = require('plywood-trino-requester');
-const toArray = require('stream-to-array'); // To get all results as an array
+const toArray = require('stream-to-array');
 
 const trinoRequester = trinoRequesterFactory({
   host: 'my.trino.host:8080',
@@ -30,80 +31,184 @@ const trinoRequester = trinoRequesterFactory({
   }
 });
 
-// Use the requester
 const stream = trinoRequester({
   query: 'SELECT "nation", sum("price") AS "TotalPrice" FROM "orders" GROUP BY "nation";'
 });
 
-// Stream to array to get all results
 toArray(stream)
-  .then(results => {
-    console.log("Results:", results);
-  })
-  .catch(err => {
-    console.error("Query error:", err);
-  });
+  .then(results => console.log("Results:", results))
+  .catch(err => console.error("Query error:", err));
 ```
 
-Although usually you would just pass `trinoRequester` into the Trino driver that is part of Plywood or configure it for Turnilo.
+### With Turnilo
 
-## Configuration for Turnilo
-
-To configure this connector with Turnilo, install this package and then update your Turnilo cluster configuration:
+The Turnilo fork adds Trino as a cluster type. Configure in `config.yaml`:
 
 ```yaml
-dataCubes:
-  - name: trino_example
-    clusterName: trino_cluster
-    source: trino
-
 clusters:
-  - name: trino_cluster
+  - name: my_trino
     type: trino
-    host: trino-server:8080
-    catalog: tpch
-    schema: sf1 
-    user: trino
-    password: trino-password  # Consider using environment variables for credentials
+    url: https://trino.example.com
+    catalog: my_catalog
+    schema: my_schema
+    sourceListScan: disable
+    timeout: 120000
+    auth:
+      type: token-command
+      command: gcloud auth print-identity-token
+      username: user@example.com
+
+dataCubes:
+  - name: my_cube
+    clusterName: my_trino
+    source: my_table
+    title: My Table
+    timeAttribute: event_time
+    introspection: no-autofill
+    refreshRule:
+      rule: fixed
+      time: PT1M
+    attributeOverrides:
+      - name: event_time
+        type: TIME
+      - name: country
+        type: STRING
+      - name: revenue
+        type: NUMBER
+    dimensions:
+      - name: event_time
+        kind: time
+        formula: $event_time
+        title: Event Time
+      - name: country
+        formula: $country
+        title: Country
+    measures:
+      - name: total_revenue
+        formula: $main.sum($revenue)
+        title: Total Revenue
 ```
 
-## Tests
+Key configuration rules:
+- Every dataCube **must** have a `timeAttribute` pointing to a `type: TIME` column
+- Use `sourceListScan: disable` and `introspection: no-autofill` — auto-discovery crashes without `timeAttribute`
+- All columns must appear in `attributeOverrides` with their types
+- Auth supports `basic`, `bearer`, and `token-command` (shell command that prints a token)
 
-To run the unit tests:
+## Architecture
 
 ```
+Turnilo React UI
+  ├── QueryControlBar ─── Run/Cancel buttons, auto-query toggle
+  ├── Ajax.cachedQuery() ─── IndexedDB cache (SHA-256 key, TTL by recency)
+  │     └── Ajax.query() ─── axios POST to server
+  └── DataProvider ─── debounced query execution, manual mode support
+        │
+        ▼
+Turnilo Server
+  └── cluster-manager → requester → trinoRequesterAdapter
+        └── HTTP POST to Trino /v1/statement
+              └── paginated response handling (nextUri)
+        └── TrinoExternal + TrinoDialect → Plywood SQL generation
+```
+
+### Trino SQL dialect differences
+
+Turnilo's `TrinoDialect` generates Trino-compatible SQL instead of Postgres:
+
+| Operation | Trino | Postgres |
+|-----------|-------|----------|
+| Concat | `CONCAT(a, b)` | `a \|\| b` |
+| Contains | `STRPOS(h, n) > 0` | `POSITION(n IN h) > 0` |
+| Regex | `REGEXP_LIKE(e, p)` | `e ~ 'p'` |
+| Time shift | `DATE_ADD('unit', v, ts)` | `ts + INTERVAL ...` |
+| Day of week | `DAY_OF_WEEK()` (Mon=1) | `DATE_PART('dow', ...)` (Sun=0) |
+| Unix time | `FROM_UNIXTIME()` / `TO_UNIXTIME()` | `TO_TIMESTAMP()` / `EXTRACT(EPOCH ...)` |
+
+### Client-side query cache
+
+All data queries pass through `Ajax.cachedQuery()` which checks IndexedDB before hitting the server:
+
+- **Cache key**: SHA-256 of `{ url, data }` (query endpoint + dataCube + viewDefinition)
+- **TTL**: 5 min for queries touching the last 48h, 24h for historical queries, 15 min default
+- **Graceful degradation**: cache errors (quota, private browsing) silently fall through to server
+- **Inspect**: DevTools > Application > IndexedDB > `turnilo-cache`
+
+### Manual query mode
+
+By default, Turnilo fires queries automatically on every filter/split change (debounced 500ms). The manual mode adds:
+
+- **Auto-query toggle** — checkbox that switches between auto and manual execution
+- **Run Query button** — explicitly triggers the query; pulses when the query definition is stale
+- **Cancel button** — appears during loading, cancels the pending query
+- Preference is persisted in localStorage
+
+## Development
+
+### Prerequisites
+
+- Node.js 16+ (use `nvm use 16` for Turnilo tests)
+- Docker & Docker Compose
+
+### Quick start
+
+```bash
+# Start Trino (TPC-H) + Turnilo locally
+docker compose up --build
+# Trino UI: http://localhost:8080
+# Turnilo UI: http://localhost:9091
+```
+
+TPC-H data covers 1992-1998 — set the time filter to a "Fixed" range in that period, not "Latest".
+
+### With an external Trino cluster
+
+Update `docker/turnilo/config.yaml` with your cluster URL and auth, then:
+
+```bash
+docker compose up --build turnilo
+```
+
+Auth types supported: `basic` (user/password), `bearer` (static token), `token-command` (shell command that prints a token, e.g. `gcloud auth print-identity-token`).
+
+### Tests
+
+```bash
+# Requester unit tests
 npm test
-```
 
-### Integration Testing with Docker
-
-This project includes a Docker Compose setup for integration testing with real Trino and Turnilo instances.
-
-To start the integration testing environment:
-
-```bash
-make up
-```
-
-This will start:
-- Trino server with TPC-H dataset on port 8080
-- Turnilo visualization UI on port 9090
-
-To run tests with the Docker environment active:
-
-```bash
+# Integration tests (starts Docker, runs tests, stops)
 make integration-test
+
+# Turnilo client tests (requires Node 16)
+cd docker/turnilo/turnilo
+npm run test:client
+npm run test:client -- --grep "cache"       # specific tests
+npm run test:client -- --grep "QueryControl" # specific tests
 ```
 
-This command will:
-1. Start Docker containers 
-2. Wait for services to initialize
-3. Run the test suite
-4. Shutdown containers when done
+### Docker build notes
 
-For more details on the Docker setup, see [docker/README.md](docker/README.md).
+- Base image: `node:18-bullseye` (not `node:16` — Buster repos are EOL)
+- Uses `sass` (Dart Sass) instead of `node-sass` — `node-sass` doesn't support arm64 Linux
+- `NODE_OPTIONS=--openssl-legacy-provider` is required for Node 18 with the older webpack
 
-## Future ToDos:
-- [x] Add a Docker container with Trino and test data for full integration testing
-- [ ] Add more comprehensive tests for the Trino connection
-- [ ] Improve error handling and retry logic
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `src/trinoRequester.ts` | Standalone Trino requester (npm package) |
+| `docker/turnilo/config.yaml` | Turnilo cluster + dataCube configuration |
+| `docker/turnilo/Dockerfile` | Turnilo Docker build |
+| `docker/turnilo/turnilo/src/server/utils/trino/trinoDialect.ts` | Trino SQL dialect |
+| `docker/turnilo/turnilo/src/server/utils/trino/trinoExternal.ts` | Plywood External (introspection, version) |
+| `docker/turnilo/turnilo/src/server/utils/trino/trinoRequesterAdapter.ts` | HTTP requester with auth |
+| `docker/turnilo/turnilo/src/client/utils/query-cache/` | IndexedDB query cache |
+| `docker/turnilo/turnilo/src/client/utils/ajax/ajax.ts` | `Ajax.cachedQuery()` wrapper |
+| `docker/turnilo/turnilo/src/client/components/query-control-bar/` | Run/Cancel UI |
+| `docker/turnilo/turnilo/src/client/visualizations/data-provider/data-provider.tsx` | Query execution + manual mode |
+| `docker/turnilo/turnilo/src/client/views/cube-view/cube-view.tsx` | Main view, state management |
+
+## Turnilo Fork
+
+The Turnilo fork at `docker/turnilo/turnilo/` is tracked as a separate git repo on branch `feature/trino-support` ([nakulgan/turnilo](https://github.com/nakulgan/turnilo)). Changes there are committed independently from this repo.
